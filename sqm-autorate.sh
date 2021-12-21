@@ -55,7 +55,7 @@ if [ "$debug" ] ; then
 fi
 
 cur_deviation=0.0
-# get average of the standard deviation across entire set of reflectors
+# Get average of the standard deviation across entire set of reflectors
 get_mdev() {
     cur_deviation=$(echo $(/usr/bin/ping -i 0.04 -c 15 1.0.0.1 | tail -1 | awk '{print $4}' | cut -d '/' -f 4) )
     wait
@@ -66,18 +66,16 @@ call_awk() {
 }
 
 get_next_shaper_rate() {
-    
     local cur_rate
     local min_rate
     local max_rate
     local cur_load
+    local next_rate
 
     cur_rate=$1
     min_rate=$2
     max_rate=$3
     cur_load=$4
-
-    local next_rate
 
     # in case of supra-threshold RTT spikes decrease the rate unconditionally
 	if awk "BEGIN {exit !($cur_deviation >= $goal_deviation)}"; then
@@ -94,15 +92,14 @@ get_next_shaper_rate() {
 	fi
 
 	# make sure to only return rates between cur_min_rate and cur_max_rate
-        if awk "BEGIN {exit !($next_rate < $min_rate)}"; then
-            next_rate=$min_rate;
-        fi
+    if awk "BEGIN {exit !($next_rate < $min_rate)}"; then
+        next_rate=$min_rate;
+    fi
 
-        if awk "BEGIN {exit !($next_rate > $max_rate)}"; then
-            next_rate=$max_rate;
-        fi
-        echo "${next_rate}"
-
+    if awk "BEGIN {exit !($next_rate > $max_rate)}"; then
+        next_rate=$max_rate;
+    fi
+    echo "${next_rate}"
 }
 
 # update download and upload rates for CAKE
@@ -119,8 +116,6 @@ function update_rates {
     prev_tx_bytes=$cur_tx_bytes
 
 	# calculate the next rate for dl and ul
-    #cur_dl_rate=$( get_next_shaper_rate "$cur_deviation" "$goal_deviation" "$max_dl_rate" "$min_dl_rate" "$rate_adjust_dev_high" "$rate_adjust_load_high" "$rate_adjust_load_low" "$cur_dl_rate" "$rx_load" "$load_thresh" )
-    #cur_ul_rate=$( get_next_shaper_rate "$cur_deviation" "$goal_deviation" "$max_ul_rate" "$min_ul_rate" "$rate_adjust_dev_high" "$rate_adjust_load_high" "$rate_adjust_load_low" "$cur_ul_rate" "$tx_load" "$load_thresh" )
     cur_dl_rate=$( get_next_shaper_rate "$cur_dl_rate" "$min_dl_rate" "$max_dl_rate" "$rx_load" )
     cur_ul_rate=$( get_next_shaper_rate "$cur_ul_rate" "$min_ul_rate" "$max_ul_rate" "$tx_load" )
 
