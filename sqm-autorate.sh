@@ -26,6 +26,7 @@ load_thresh=0.5             # % of currently set bandwidth for detecting high lo
 
 user_set_deviation=10        # How many standard deviations away from the test ping can the current rtt exist within (if the test rtt is 30, and the test deviation is 5, a value here of 3 deviations means the max ping is 45ms)
 
+# Replace these with a variable rate
 rate_adjust_load_high=0.01	# How rapidly to increase bandwidth upon high load detected
 rate_adjust_dev_high=0.02   # Percent to reduce by if the current RTT's deviation exceeds the user set deviation value (highly recommended to be smaller than the increase rate)
 rate_adjust_load_low=0.0025 # Percent to reduce by if the rate is low (Default is zero because the rate reduction is so fast. Also recommended to be zero if your min rate is very low)
@@ -60,9 +61,9 @@ if [ "$debug" ] ; then
     echo "tx_bytes_path: $tx_bytes_path"
 fi
 
-goal_rtt=0
-goal_dev=0
-max_rtt=0
+#goal_rtt=0
+#goal_dev=0
+#max_rtt=0
 # Get average of the standard deviation across entire set of reflectors
 ping_servers(){
     ping_info=$(echo $(ping -i 0.05 -c 15 8.8.8.8 | tail -1 | awk '{print $4}') )
@@ -150,8 +151,6 @@ function update_rates {
     cur_ul_rate=$( get_next_shaper_rate "$cur_ul_rate" "$min_ul_rate" "$max_ul_rate" "$tx_load" )
 
     if [ $enable_verbose_output -eq 1 ]; then
-        #printf "%s;%15.2f;%15.2f;%15.2f;%15.2f;%15.2f;%15.2f;%15.2f;%15.2f\n" $( date "+%Y%m%dT%H%M%S.%N" ) $rx_load $tx_load $goal_dev $goal_rtt $max_rtt $cur_rtt $RTT_deviation $cur_dl_rate $cur_ul_rate
-        
         printf "%s|%15.2f|%15.2f|%17.2f|%10.2f|%10.2f|%10.2f|%15.2f|%15.2f|%15.2f|\n" $( date "+%Y%m%dT%H%M%S.%N" ) $rx_load $tx_load $goal_dev $goal_rtt $max_rtt $cur_rtt $RTT_deviation $cur_dl_rate $cur_ul_rate
     fi
 }
@@ -159,8 +158,8 @@ function update_rates {
 # set initial values for first run
 cur_dl_rate=$starting_dl_rate
 cur_ul_rate=$starting_ul_rate
-hour_count=1800
-hour_max=1800
+hour_count=$( call_awk "int( 3600 / ${tick_duration}) " )
+hour_max=$hour_count
 
 # set the next different from the cur_XX_rates so that on the first round we are guaranteed to call tc
 last_dl_rate=0
@@ -184,10 +183,9 @@ do
         # lower rates to get a ping test with almost no load
         tc qdisc change root dev ${dl_if} cake bandwidth 100Kbit
         tc qdisc change root dev ${ul_if} cake bandwidth 100Kbit
-        sleep 2
+        sleep 5
 
         # ping with min rates to get low load deviation
-        hour_count=0
         ping_servers
         set_rtt
         set_goal_rtt
@@ -195,6 +193,7 @@ do
         set_max_rtt
 
         # Set rates back to normal
+        hour_count=0
         tc qdisc change root dev ${dl_if} cake bandwidth ${cur_dl_rate}Kbit
         tc qdisc change root dev ${ul_if} cake bandwidth ${cur_ul_rate}Kbit
     fi
